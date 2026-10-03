@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My Chatroom</title>
+  <style>
+    body {
+      background: #e6edf1;
+      color: #1c2a35;
+      font-family: "Trebuchet MS", sans-serif;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    input, button {
+      font-size: 1rem;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 2px solid #b9c8d2;
+    }
+    button {
+      background: #1f7a8c;
+      border-color: #1f7a8c;
+      color: white;
+      cursor: pointer;
+    }
+    #messages {
+      margin-bottom: 12px;
+    }
+    .message {
+      background: white;
+      padding: 8px 12px;
+      border-radius: 12px;
+      margin-bottom: 8px;
+    }
+    .sender {
+      font-weight: bold;
+      color: #1f7a8c;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="joinScreen">
+    <h1>Join the chat</h1>
+    <input id="nameBox" placeholder="Pick a name">
+    <button id="joinButton">Join</button>
+  </div>
+
+  <div id="chatScreen" class="hidden">
+    <h1>My Chatroom</h1>
+    <div id="messages"></div>
+    <input id="messageBox" placeholder="Type a message">
+    <button id="sendButton">Send</button>
+  </div>
+
+ <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script>
+  const joinScreen = document.getElementById("joinScreen");
+  const chatScreen = document.getElementById("chatScreen");
+  const nameBox = document.getElementById("nameBox");
+  const joinButton = document.getElementById("joinButton");
+  const messageBox = document.getElementById("messageBox");
+  const sendButton = document.getElementById("sendButton");
+  const messages = document.getElementById("messages");
+
+  let myName = "";
+
+  const ROOM = "change-me-to-something-random-48213";
+  const TOPIC = "my-chatroom/" + ROOM;
+  const MAX_SHOWN = 50;
+
+  const allMessages = [];
+  const seenIds = new Set();
+
+  const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
+
+  client.on("connect", function () {
+    client.subscribe(TOPIC + "/#");
+  });
+
+  client.on("message", function (topic, data) {
+    if (data.length === 0) {
+      return;
+    }
+    const msg = JSON.parse(data.toString());
+
+    if (seenIds.has(msg.id)) {
+      return;
+    }
+    seenIds.add(msg.id);
+
+    allMessages.push(msg);
+    allMessages.sort(function (a, b) {
+      return a.time - b.time;
+    });
+    if (allMessages.length > MAX_SHOWN) {
+      allMessages.shift();
+    }
+
+    render();
+  });
+
+  function render() {
+    messages.innerHTML = "";
+    allMessages.forEach(function (m) {
+      showMessage(m.name, m.text);
+    });
+    window.scrollTo(0, document.body.scrollHeight);
+  }
+
+  function showMessage(name, text) {
+    const bubble = document.createElement("div");
+    bubble.className = "message";
+
+    const sender = document.createElement("span");
+    sender.className = "sender";
+    sender.textContent = name + ": ";
+
+    const body = document.createElement("span");
+    body.textContent = text;
+
+    bubble.appendChild(sender);
+    bubble.appendChild(body);
+    messages.appendChild(bubble);
+  }
+
+  joinButton.addEventListener("click", function () {
+    const name = nameBox.value.trim();
+    if (name === "") {
+      return;
+    }
+    myName = name;
+    joinScreen.classList.add("hidden");
+    chatScreen.classList.remove("hidden");
+  });
+
+  sendButton.addEventListener("click", function () {
+    const text = messageBox.value.trim();
+    if (text === "") {
+      return;
+    }
+    const id = Date.now() + "-" + Math.random().toString(36).slice(2);
+    const msg = { id: id, name: myName, text: text, time: Date.now() };
+
+    client.publish(TOPIC + "/" + id, JSON.stringify(msg), { retain: true });
+    messageBox.value = "";
+  });
+</script>
+</body>
+</html>
