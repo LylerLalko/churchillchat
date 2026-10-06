@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CHS CHAT</title>
   <style>
     body {
@@ -24,17 +25,35 @@
       cursor: pointer;
     }
     #messages {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
       margin-bottom: 12px;
     }
     .message {
       background: white;
       padding: 8px 12px;
       border-radius: 12px;
-      margin-bottom: 8px;
+      max-width: 80%;
+      align-self: flex-start;
+      overflow-wrap: anywhere;
+    }
+    .message.mine {
+      background: #1f7a8c;
+      color: white;
+      align-self: flex-end;
     }
     .sender {
       font-weight: bold;
       color: #1f7a8c;
+    }
+    .mine .sender {
+      color: #d6eef2;
+    }
+    .time {
+      font-size: 0.75rem;
+      opacity: 0.7;
+      margin-left: 8px;
     }
     .hidden {
       display: none;
@@ -44,110 +63,143 @@
 <body>
 
   <div id="joinScreen">
-    <h1>Enter the main room?</h1>
-    <input id="nameBox" placeholder="Pick a name">
+    <h1>Ready to join?</h1>
+    <input id="nameBox" placeholder="Pick a name" maxlength="20">
     <button id="joinButton">Join</button>
   </div>
 
   <div id="chatScreen" class="hidden">
-    <h1>Churchill Chat - Updates Coming Soon - Property of Lyler Lalko. Please no impersonation its not cool 🙏</h1>
+    <h1>Churchill Chat</h1>
     <div id="messages"></div>
-    <input id="messageBox" placeholder="Type a message">
+    <input id="messageBox" placeholder="Type a message" maxlength="500">
     <button id="sendButton">Send</button>
   </div>
 
- <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
-<script>
-  const joinScreen = document.getElementById("joinScreen");
-  const chatScreen = document.getElementById("chatScreen");
-  const nameBox = document.getElementById("nameBox");
-  const joinButton = document.getElementById("joinButton");
-  const messageBox = document.getElementById("messageBox");
-  const sendButton = document.getElementById("sendButton");
-  const messages = document.getElementById("messages");
+  <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
+  <script>
+    const joinScreen = document.getElementById("joinScreen");
+    const chatScreen = document.getElementById("chatScreen");
+    const nameBox = document.getElementById("nameBox");
+    const joinButton = document.getElementById("joinButton");
+    const messageBox = document.getElementById("messageBox");
+    const sendButton = document.getElementById("sendButton");
+    const messages = document.getElementById("messages");
 
-  let myName = "";
+    // Change this to something long and random.
+    const ROOM = "main-123";
+    const TOPIC = "Main" + ROOM;
+    const MAX_SHOWN = 50;
 
-  const ROOM = "main123";
-  const TOPIC = "my-chatroom/" + ROOM;
-  const MAX_SHOWN = 50;
+    let myName = "";
 
-  const allMessages = [];
-  const seenIds = new Set();
-
-  const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
-
-  client.on("connect", function () {
-    client.subscribe(TOPIC + "/#");
-  });
-
-  client.on("message", function (topic, data) {
-    if (data.length === 0) {
-      return;
+    // Each browser gets a permanent random ID so we know which messages are ours.
+    let myId = localStorage.getItem("chatUserId");
+    if (!myId) {
+      myId = Math.random().toString(36).slice(2);
+      localStorage.setItem("chatUserId", myId);
     }
-    const msg = JSON.parse(data.toString());
 
-    if (seenIds.has(msg.id)) {
-      return;
-    }
-    seenIds.add(msg.id);
+    // Fill in the name from last visit.
+    nameBox.value = localStorage.getItem("chatName") || "";
 
-    allMessages.push(msg);
-    allMessages.sort(function (a, b) {
-      return a.time - b.time;
+    const allMessages = [];
+    const seenIds = new Set();
+
+    const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
+
+    client.on("connect", function () {
+      client.subscribe(TOPIC + "/#");
     });
-    if (allMessages.length > MAX_SHOWN) {
-      allMessages.shift();
-    }
 
-    render();
-  });
+    client.on("message", function (topic, data) {
+      if (data.length === 0) {
+        return;
+      }
+      const msg = JSON.parse(data.toString());
+      if (seenIds.has(msg.id)) {
+        return;
+      }
+      seenIds.add(msg.id);
 
-  function render() {
-    messages.innerHTML = "";
-    allMessages.forEach(function (m) {
-      showMessage(m.name, m.text);
+      allMessages.push(msg);
+      allMessages.sort(function (a, b) {
+        return a.time - b.time;
+      });
+      if (allMessages.length > MAX_SHOWN) {
+        allMessages.shift();
+      }
+      render();
     });
-    window.scrollTo(0, document.body.scrollHeight);
-  }
 
-  function showMessage(name, text) {
-    const bubble = document.createElement("div");
-    bubble.className = "message";
-
-    const sender = document.createElement("span");
-    sender.className = "sender";
-    sender.textContent = name + ": ";
-
-    const body = document.createElement("span");
-    body.textContent = text;
-
-    bubble.appendChild(sender);
-    bubble.appendChild(body);
-    messages.appendChild(bubble);
-  }
-
-  joinButton.addEventListener("click", function () {
-    const name = nameBox.value.trim();
-    if (name === "") {
-      return;
+    function render() {
+      messages.innerHTML = "";
+      allMessages.forEach(showMessage);
+      window.scrollTo(0, document.body.scrollHeight);
     }
-    myName = name;
-    joinScreen.classList.add("hidden");
-    chatScreen.classList.remove("hidden");
-  });
 
-  sendButton.addEventListener("click", function () {
-    const text = messageBox.value.trim();
-    if (text === "") {
-      return;
+    function showMessage(msg) {
+      const bubble = document.createElement("div");
+      bubble.className = "message";
+      if (msg.userId === myId) {
+        bubble.classList.add("mine");
+      }
+
+      const sender = document.createElement("span");
+      sender.className = "sender";
+      sender.textContent = msg.name;
+
+      const when = document.createElement("span");
+      when.className = "time";
+      when.textContent = new Date(msg.time).toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit"
+      });
+
+      const body = document.createElement("div");
+      body.textContent = msg.text;
+
+      bubble.appendChild(sender);
+      bubble.appendChild(when);
+      bubble.appendChild(body);
+      messages.appendChild(bubble);
     }
-    const id = Date.now() + "-" + Math.random().toString(36).slice(2);
-    const msg = { id: id, name: myName, text: text, time: Date.now() };
 
-    client.publish(TOPIC + "/" + id, JSON.stringify(msg), { retain: true });
-    messageBox.value = "";
-  });
-</script>
+    function join() {
+      const name = nameBox.value.trim();
+      if (name === "") {
+        return;
+      }
+      myName = name;
+      localStorage.setItem("chatName", name);
+      joinScreen.classList.add("hidden");
+      chatScreen.classList.remove("hidden");
+      messageBox.focus();
+    }
+
+    function sendMessage() {
+      const text = messageBox.value.trim();
+      if (text === "") {
+        return;
+      }
+      const id = Date.now() + "-" + Math.random().toString(36).slice(2);
+      const msg = { id: id, userId: myId, name: myName, text: text, time: Date.now() };
+      client.publish(TOPIC + "/" + id, JSON.stringify(msg), { retain: true });
+      messageBox.value = "";
+    }
+
+    joinButton.addEventListener("click", join);
+    sendButton.addEventListener("click", sendMessage);
+
+    nameBox.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        join();
+      }
+    });
+    messageBox.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        sendMessage();
+      }
+    });
+  </script>
 </body>
 </html>
