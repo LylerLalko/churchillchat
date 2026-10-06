@@ -72,18 +72,18 @@
 <body>
 
   <div id="joinScreen">
-    <h1>Join the chat</h1>
+    <h1>Join The CHS Chat</h1>
     <input id="nameBox" placeholder="Pick a name" maxlength="20">
     <button id="joinButton">Join</button>
   </div>
 
   <div id="chatScreen" class="hidden">
-    <h1>My Chatroom</h1>
+    <h1>CHS Chatroom</h1>
     <div class="toolbar">
       <select id="roomSelect"></select>
       <input id="newRoomBox" placeholder="New room" maxlength="20">
       <button id="newRoomButton">Go</button>
-      <button id="soundButton" title="Toggle notification sound">🔔</button>
+      <button id="soundButton" title="Toggle notification sound"></button>
     </div>
     <div id="messages"></div>
     <input id="messageBox" placeholder="Type a message" maxlength="500">
@@ -105,12 +105,12 @@
     const soundButton = document.getElementById("soundButton");
 
     // Paste your old random text here, or make a new one.
-    const SITE_KEY = "change-me-to-something-random-48213";
-    const BASE = "my-chatroom/" + SITE_KEY;
+    const SITE_KEY = "newest";
+    const BASE = "MainChat" + SITE_KEY;
     const MAX_SHOWN = 50;
 
     // ---- WORD FILTER: add your own words to this list ----
-    const BLOCKED_WORDS = ["badword", "otherbadword"];
+    const BLOCKED_WORDS = ["Braddock"];
 
     let myName = "";
     let currentRoom = "";
