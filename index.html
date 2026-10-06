@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>My Chatroom</title>
+  <title>CHS Chat</title>
   <style>
     body {
       background: #e6edf1;
@@ -102,21 +102,23 @@
     const roomSelect = document.getElementById("roomSelect");
     const newRoomBox = document.getElementById("newRoomBox");
     const newRoomButton = document.getElementById("newRoomButton");
+    const makeCodeButton = document.getElementById("makeCodeButton");
+    const copyButton = document.getElementById("copyButton");
+    const leaveButton = document.getElementById("leaveButton");
     const soundButton = document.getElementById("soundButton");
 
     // Paste your old random text here, or make a new one.
-    const SITE_KEY = "newest";
-    const BASE = "MainChat" + SITE_KEY;
+    const SITE_KEY = "V4";
+    const BASE = "CHS-MAIN" + SITE_KEY;
     const MAX_SHOWN = 50;
 
     // ---- WORD FILTER: add your own words to this list ----
-    const BLOCKED_WORDS = ["Braddock"];
+    const BLOCKED_WORDS = ["Braddock", "BRADDOCK"];
 
     let myName = "";
     let currentRoom = "";
     let roomTopic = "";
     let enteredAt = 0;
-    const rooms = new Set(["general", "random"]);
     const allMessages = [];
     const seenIds = new Set();
 
@@ -181,32 +183,62 @@
     });
     updateSoundButton();
 
-    // ---------- ROOMS ----------
+    // ---------- ROOMS (joined by secret code) ----------
     function cleanRoomName(raw) {
       return raw.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").slice(0, 20);
     }
 
+    // Rooms I've joined, saved in this browser only. "general" is always there.
+    let myRooms = ["general"];
+    try {
+      const saved = JSON.parse(localStorage.getItem("chatRooms") || "[]");
+      saved.forEach(function (name) {
+        if (typeof name === "string" && cleanRoomName(name) === name && name !== "general") {
+          myRooms.push(name);
+        }
+      });
+    } catch (e) {}
+
+    function saveRooms() {
+      localStorage.setItem("chatRooms", JSON.stringify(myRooms.filter(function (r) {
+        return r !== "general";
+      })));
+    }
+
+    function makeCode() {
+      const chars = "abcdefghjkmnpqrstuvwxyz23456789";
+      let code = "";
+      do {
+        const bytes = crypto.getRandomValues(new Uint8Array(8));
+        code = Array.from(bytes, function (b) {
+          return chars[b % chars.length];
+        }).join("");
+      } while (clean(code) !== code);
+      return code;
+    }
+
     function updateRoomList() {
       roomSelect.innerHTML = "";
-      Array.from(rooms).sort().forEach(function (name) {
+      myRooms.forEach(function (name) {
         const option = document.createElement("option");
         option.value = name;
-        option.textContent = "# " + name;
+        option.textContent = name === "general" ? "# general (public lobby)" : "🔒 " + name;
         option.selected = name === currentRoom;
         roomSelect.appendChild(option);
       });
     }
 
-    function enterRoomOnBroker() {
-      client.subscribe(roomTopic + "/#");
-      client.publish(BASE + "/rooms/" + currentRoom, JSON.stringify({ name: currentRoom }), { retain: true });
-    }
-
+    // Returns "" on success, or a message explaining what went wrong.
     function switchRoom(raw) {
       const name = cleanRoomName(raw);
-      if (name === "" || name === currentRoom || clean(name) !== name) {
-        updateRoomList();
-        return;
+      if (name === currentRoom) {
+        return "";
+      }
+      if (name.length < 3) {
+        return "A room code needs at least 3 letters or numbers.";
+      }
+      if (clean(name) !== name) {
+        return "That code isn't allowed.";
       }
       if (currentRoom && client.connected) {
         client.unsubscribe(roomTopic + "/#");
@@ -216,20 +248,32 @@
       allMessages.length = 0;
       seenIds.clear();
       enteredAt = Date.now();
-      rooms.add(name);
+      if (myRooms.indexOf(name) === -1) {
+        myRooms.push(name);
+        saveRooms();
+      }
       updateRoomList();
       render();
       if (client.connected) {
-        enterRoomOnBroker();
+        client.subscribe(roomTopic + "/#");
       }
       history.replaceState(null, "", "?room=" + name);
+      return "";
+    }
+
+    function tryJoinRoom(raw) {
+      const problem = switchRoom(raw);
+      if (problem !== "") {
+        alert(problem);
+        updateRoomList();
+      }
     }
 
     roomSelect.addEventListener("change", function () {
-      switchRoom(roomSelect.value);
+      tryJoinRoom(roomSelect.value);
     });
     newRoomButton.addEventListener("click", function () {
-      switchRoom(newRoomBox.value);
+      tryJoinRoom(newRoomBox.value);
       newRoomBox.value = "";
     });
     newRoomBox.addEventListener("keydown", function (event) {
@@ -237,42 +281,55 @@
         newRoomButton.click();
       }
     });
+    makeCodeButton.addEventListener("click", function () {
+      tryJoinRoom(makeCode());
+    });
+
+    copyButton.addEventListener("click", function () {
+      const link = location.origin + location.pathname + "?room=" + currentRoom;
+      navigator.clipboard.writeText(link).then(function () {
+        copyButton.textContent = "Copied!";
+        setTimeout(function () {
+          copyButton.textContent = "Invite";
+        }, 1500);
+      }, function () {
+        window.prompt("Copy this link:", link);
+      });
+    });
+
+    leaveButton.addEventListener("click", function () {
+      if (currentRoom === "general") {
+        return;
+      }
+      const leaving = currentRoom;
+      if (client.connected) {
+        client.unsubscribe(roomTopic + "/#");
+      }
+      myRooms = myRooms.filter(function (r) {
+        return r !== leaving;
+      });
+      saveRooms();
+      currentRoom = "";
+      switchRoom("general");
+    });
 
     // ---------- CONNECTION ----------
     const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
 
     client.on("connect", function () {
-      client.subscribe(BASE + "/rooms/#");
       if (currentRoom) {
-        enterRoomOnBroker();
+        client.subscribe(roomTopic + "/#");
       }
     });
 
     client.on("message", function (topic, data) {
-      if (data.length === 0) {
+      if (data.length === 0 || !roomTopic || !topic.startsWith(roomTopic + "/")) {
         return;
       }
       let msg;
       try {
         msg = JSON.parse(data.toString());
       } catch (e) {
-        return;
-      }
-
-      // A room announcement
-      if (topic.startsWith(BASE + "/rooms/")) {
-        if (typeof msg.name === "string") {
-          const name = cleanRoomName(msg.name);
-          if (name !== "" && clean(name) === name && !rooms.has(name)) {
-            rooms.add(name);
-            updateRoomList();
-          }
-        }
-        return;
-      }
-
-      // A chat message, only for the room we're in
-      if (!roomTopic || !topic.startsWith(roomTopic + "/")) {
         return;
       }
       if (typeof msg.id !== "string" || typeof msg.name !== "string" ||
@@ -293,7 +350,6 @@
       }
       render();
 
-      // Only beep for new messages from other people, not old history
       if (msg.userId !== myId && msg.time > enteredAt) {
         beep();
       }
@@ -345,9 +401,9 @@
       joinScreen.classList.add("hidden");
       chatScreen.classList.remove("hidden");
 
+      // An invite link lands you straight in that room.
       const startRoom = new URLSearchParams(location.search).get("room") || "general";
-      switchRoom(startRoom);
-      if (!currentRoom) {
+      if (switchRoom(startRoom) !== "") {
         switchRoom("general");
       }
       messageBox.focus();
