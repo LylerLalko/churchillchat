@@ -198,15 +198,83 @@ body .sender {
   min-height: 18px;
   margin-bottom: 8px;
 }
+    
+.avatar-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0;
+  max-width: 250px;
+}
+
+.avatar-picker label {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.avatar-picker select {
+  width: 100%;
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  margin-right: 7px;
+  vertical-align: middle;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
   </style>
 </head>
 <body>
 
   <div id="joinScreen">
     <h1>Join the chat</h1>
-    <input id="nameBox" placeholder="Pick a name" maxlength="20">
-<input id="passwordBox" type="password" placeholder="Password (Only for real Lyler)" maxlength="50">
+    
+<input id="nameBox" placeholder="Pick a name" maxlength="20">
+
+<div class="avatar-picker">
+  <label for="avatarEmoji">Profile emoji</label>
+  <select id="avatarEmoji">
+    <option value="😂">😂 Cry Laugh</option>
+    <option value="💔">💔 Heart</option>
+    <option value="😭">😭 Sobbing</option>
+    <option value="🔥">🔥 Fire</option>
+    <option value="🗿">🗿 Moai</option>
+    <option value="🥀">🥀 Rose</option>
+    <option value="🤤">🤤 Drool</option>
+    <option value="💀">💀 Skull</option>
+    <option value="🙏">🙏 Praying</option>
+    <option value="🥹">🥹 Water Eyes</option>
+    <option value="😢">😢 Crying</option>
+    <option value="🦆">🦆 Duck</option>
+    <option value="🤡">🤡 Clown</option>
+  </select>
+
+  <label for="avatarColor">Avatar color</label>
+  <select id="avatarColor">
+    <option value="#64748b">Slate</option>
+    <option value="#e74c3c">Red</option>
+    <option value="#e67e22">Orange</option>
+    <option value="#f1c40f">Yellow</option>
+    <option value="#27ae60">Green</option>
+    <option value="#3498db">Blue</option>
+    <option value="#8e44ad">Purple</option>
+    <option value="#e84393">Pink</option>
+    <option value="#34495e">Dark gray</option>
+  </select>
+</div>
+
+<input id="passwordBox" type="password"
+       placeholder="Password (Only for real Lyler)" maxlength="50">
+
 <button id="joinButton">Join</button>
+
   </div>
 
   <div id="chatScreen" class="hidden">
@@ -255,6 +323,17 @@ body .sender {
     const leaveButton = document.getElementById("leaveButton");
     const soundButton = document.getElementById("soundButton");
     const passwordBox = document.getElementById("passwordBox");
+    
+const avatarEmojiBox = document.getElementById("avatarEmoji");
+const avatarColorBox = document.getElementById("avatarColor");
+
+// Restore the saved avatar choices.
+avatarEmojiBox.value = localStorage.getItem("chatAvatar") || "🙂";
+avatarColorBox.value = localStorage.getItem("chatAvatarColor") || "#64748b";
+
+let myAvatar = avatarEmojiBox.value;
+let myAvatarColor = avatarColorBox.value;
+
     
 
     // Change this to your own long random text.
@@ -567,6 +646,11 @@ setInterval(updateTypingIndicator, 1000);
       if (msg.userId === myId) {
         bubble.classList.add("mine");
       }
+      
+const avatar = document.createElement("span");
+avatar.className = "avatar";
+avatar.textContent = msg.avatar || "🙂";
+avatar.style.backgroundColor = msg.avatarColor || "#64748b";
 
       const sender = document.createElement("span");
       sender.className = "sender";
@@ -582,8 +666,11 @@ setInterval(updateTypingIndicator, 1000);
       const body = document.createElement("div");
       body.textContent = clean(msg.text.slice(0, 500));
 
-      bubble.appendChild(sender);
-      bubble.appendChild(when);
+      
+bubble.appendChild(avatar);
+bubble.appendChild(sender);
+bubble.appendChild(when);
+
       bubble.appendChild(body);
       messages.appendChild(bubble);
     }
@@ -604,8 +691,16 @@ setInterval(updateTypingIndicator, 1000);
     }
   }
 
-  myName = name;
-  localStorage.setItem("chatName", name);
+  
+myName = name;
+
+myAvatar = avatarEmojiBox.value;
+myAvatarColor = avatarColorBox.value;
+
+localStorage.setItem("chatName", name);
+localStorage.setItem("chatAvatar", myAvatar);
+localStorage.setItem("chatAvatarColor", myAvatarColor);
+
   unlockAudio();
   joinScreen.classList.add("hidden");
   chatScreen.classList.remove("hidden");
@@ -626,7 +721,17 @@ setInterval(updateTypingIndicator, 1000);
         return;
       }
       const id = Date.now() + "-" + Math.random().toString(36).slice(2);
-      const msg = { id: id, userId: myId, name: myName, text: text, time: Date.now() };
+      
+const msg = {
+  id: id,
+  userId: myId,
+  name: myName,
+  avatar: myAvatar,
+  avatarColor: myAvatarColor,
+  text: text,
+  time: Date.now()
+};
+
       client.publish(roomTopic + "/" + id, JSON.stringify(msg), { retain: true });
       messageBox.value = "";
     }
