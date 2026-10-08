@@ -105,6 +105,92 @@ body.dark .message {
 body.dark .sender {
   color: #fff;
 }
+/* Themes */
+
+body {
+  --bg: #ffffff;
+  --text: #111111;
+  --input-bg: #ffffff;
+  --button-bg: #eeeeee;
+  --message-bg: #f0f0f0;
+  --accent: #333333;
+
+  background: var(--bg);
+  color: var(--text);
+}
+
+body.dark {
+  --bg: #121212;
+  --text: #eeeeee;
+  --input-bg: #1e1e1e;
+  --button-bg: #2a2a2a;
+  --message-bg: #242424;
+  --accent: #ffffff;
+}
+
+body.blue {
+  --bg: #eaf3ff;
+  --text: #102a43;
+  --input-bg: #ffffff;
+  --button-bg: #cfe3ff;
+  --message-bg: #dcecff;
+  --accent: #1769aa;
+}
+
+body.purple {
+  --bg: #f4eaff;
+  --text: #28143d;
+  --input-bg: #ffffff;
+  --button-bg: #e4ccff;
+  --message-bg: #eadcff;
+  --accent: #7b2cbf;
+}
+
+body.green {
+  --bg: #eaffea;
+  --text: #143d1c;
+  --input-bg: #ffffff;
+  --button-bg: #cceccc;
+  --message-bg: #d9f2d9;
+  --accent: #238636;
+}
+
+body.red {
+  --bg: #ffeaea;
+  --text: #3d1414;
+  --input-bg: #ffffff;
+  --button-bg: #ffcccc;
+  --message-bg: #f5d9d9;
+  --accent: #c62828;
+}
+
+body.yellow {
+  --bg: #fffbe0;
+  --text: #3d3514;
+  --input-bg: #ffffff;
+  --button-bg: #fff0a8;
+  --message-bg: #fff5c7;
+  --accent: #9a7b00;
+}
+
+body input,
+body select {
+  background: var(--input-bg);
+  color: var(--text);
+}
+
+body button {
+  background: var(--button-bg);
+  color: var(--text);
+}
+
+body .message {
+  background: var(--message-bg);
+}
+
+body .sender {
+  color: var(--accent);
+}
   </style>
 </head>
 <body>
@@ -124,6 +210,15 @@ body.dark .sender {
       <button id="leaveButton" title="Leave this room">Leave</button>
       <button id="soundButton" title="Toggle notification sound">🔔</button>
       <button id="darkModeButton" title="Toggle dark mode">🌙</button>
+        <select id="themeSelect">
+  <option value="light">☀️ Light</option>
+  <option value="dark">🌙 Dark</option>
+  <option value="blue">🔵 Blue</option>
+  <option value="purple">🟣 Purple</option>
+  <option value="green">🟢 Green</option>
+  <option value="red">🔴 Red</option>
+  <option value="yellow">🟡 Yellow</option>
+</select>
     </div>
     <div class="toolbar">
       <input id="newRoomBox" placeholder="Room code" maxlength="20">
@@ -158,23 +253,7 @@ body.dark .sender {
     const SITE_KEY = "Version5WithJoinFix";
     const BASE = "ChurChat/" + SITE_KEY;
     const MAX_SHOWN = 50;
-    const SITE_VERSION = "1";
 
-setInterval(async function () {
-  try {
-    const response = await fetch("version.txt?x=" + Date.now(), {
-      cache: "no-store"
-    });
-
-    const serverVersion = (await response.text()).trim();
-
-    if (serverVersion !== SITE_VERSION) {
-      location.reload();
-    }
-  } catch (e) {
-    // Ignore temporary connection errors
-  }
-}, 5000);
 
     // ---- WORD FILTER: add your own words to this list ----
     const BLOCKED_WORDS = ["Braddock", "BRADDOCK", "Retard"];
@@ -497,7 +576,35 @@ setInterval(async function () {
       client.publish(roomTopic + "/" + id, JSON.stringify(msg), { retain: true });
       messageBox.value = "";
     }
+const themeSelect = document.getElementById("themeSelect");
 
+let savedTheme = localStorage.getItem("chatTheme") || "light";
+
+function applyTheme() {
+  document.body.classList.remove(
+    "dark",
+    "blue",
+    "purple",
+    "green",
+    "red",
+    "yellow"
+  );
+
+  if (savedTheme !== "light") {
+    document.body.classList.add(savedTheme);
+  }
+
+  themeSelect.value = savedTheme;
+}
+
+themeSelect.addEventListener("change", function () {
+  savedTheme = themeSelect.value;
+  localStorage.setItem("chatTheme", savedTheme);
+  applyTheme();
+});
+
+applyTheme();
+    
     joinButton.addEventListener("click", join);
     sendButton.addEventListener("click", sendMessage);
     nameBox.addEventListener("keydown", function (event) {
