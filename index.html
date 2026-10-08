@@ -67,6 +67,44 @@
     .hidden {
       display: none;
     }
+      /* Dark mode */
+body.dark {
+  background: #121212;
+  color: #eee;
+}
+
+body.dark #chatScreen {
+  background: #121212;
+}
+
+body.dark input,
+body.dark select {
+  background: #1e1e1e;
+  color: #eee;
+  border-color: #444;
+}
+
+body.dark button {
+  background: #2a2a2a;
+  color: #eee;
+  border-color: #555;
+}
+
+body.dark button:hover {
+  background: #3a3a3a;
+}
+
+body.dark #messages {
+  background: #181818;
+}
+
+body.dark .message {
+  background: #242424;
+}
+
+body.dark .sender {
+  color: #fff;
+}
   </style>
 </head>
 <body>
@@ -85,6 +123,7 @@
       <button id="copyButton" title="Copy invite link">Invite</button>
       <button id="leaveButton" title="Leave this room">Leave</button>
       <button id="soundButton" title="Toggle notification sound">🔔</button>
+      <button id="darkModeButton" title="Toggle dark mode">🌙</button>
     </div>
     <div class="toolbar">
       <input id="newRoomBox" placeholder="Room code" maxlength="20">
@@ -453,6 +492,27 @@
         sendMessage();
       }
     });
+  const darkModeButton = document.getElementById("darkModeButton");
+
+let darkMode = localStorage.getItem("darkMode") === "on";
+
+function updateDarkMode() {
+  document.body.classList.toggle("dark", darkMode);
+  darkModeButton.textContent = darkMode ? "☀️" : "🌙";
+}
+
+darkModeButton.addEventListener("click", function () {
+  darkMode = !darkMode;
+
+  localStorage.setItem(
+    "darkMode",
+    darkMode ? "on" : "off"
+  );
+
+  updateDarkMode();
+});
+
+updateDarkMode();
   </script>
 </body>
 </html>
