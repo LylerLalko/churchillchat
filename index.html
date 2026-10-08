@@ -152,11 +152,29 @@ body.dark .sender {
     const leaveButton = document.getElementById("leaveButton");
     const soundButton = document.getElementById("soundButton");
     const passwordBox = document.getElementById("passwordBox");
+    
 
     // Change this to your own long random text.
     const SITE_KEY = "Version5WithJoinFix";
     const BASE = "ChurChat/" + SITE_KEY;
     const MAX_SHOWN = 50;
+    const SITE_VERSION = "1";
+
+setInterval(async function () {
+  try {
+    const response = await fetch("version.txt?x=" + Date.now(), {
+      cache: "no-store"
+    });
+
+    const serverVersion = (await response.text()).trim();
+
+    if (serverVersion !== SITE_VERSION) {
+      location.reload();
+    }
+  } catch (e) {
+    // Ignore temporary connection errors
+  }
+}, 5000);
 
     // ---- WORD FILTER: add your own words to this list ----
     const BLOCKED_WORDS = ["Braddock", "BRADDOCK", "Retard"];
