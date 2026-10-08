@@ -684,12 +684,25 @@ bubble.appendChild(when);
   }
 
   // Braddock requires a password
-  if (name.toLowerCase() === "lyler") {
-    if (passwordBox.value !== "LavenderRocks2021") {
-      alert("Wrong password haha pick something else");
-      return;
+  const USER_PASSWORDS = {
+      "Lyler": "LavenderRocks2021",
+      #RoninKurlychek
+      "Cubane": "#Itisme1",
+      "Bob": "BobPass"
+    };
+
+    function checkUserPassword(name, password) {
+      const matchedName = Object.keys(USER_PASSWORDS).find(
+        username => username.toLowerCase() === name.toLowerCase()
+      );
+
+      // Names not in the list don't require a password.
+      if (!matchedName) {
+        return true;
+      }
+
+      return password === USER_PASSWORDS[matchedName];
     }
-  }
 
   
 myName = name;
