@@ -191,6 +191,13 @@ body .message {
 body .sender {
   color: var(--accent);
 }
+#typingIndicator {
+  font-size: 13px;
+  font-style: italic;
+  color: #687782;
+  min-height: 18px;
+  margin-bottom: 8px;
+}
   </style>
 </head>
 <body>
@@ -228,6 +235,7 @@ body .sender {
     <div id="messages"></div>
     <input id="messageBox" placeholder="Type a message" maxlength="500">
     <button id="sendButton">Send</button>
+    <div id="typingIndicator"></div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
@@ -253,6 +261,9 @@ body .sender {
     const SITE_KEY = "Version5WithJoinFix";
     const BASE = "ChurChat/" + SITE_KEY;
     const MAX_SHOWN = 50;
+    const typingIndicator = document.getElementById("typingIndicator");
+const typingUsers = new Map();
+let lastTypingSent = 0;
 
 
     // ---- WORD FILTER: add your own words to this list ----
@@ -468,6 +479,26 @@ body .sender {
     });
 
     client.on("message", function (topic, data) {
+      if (topic === roomTopic + "/typing") {
+  try {
+    const info = JSON.parse(data.toString());
+
+    if (info.userId === myId) return;
+
+    if (info.typing && info.name) {
+      typingUsers.set(info.userId, {
+        name: info.name,
+        time: Date.now()
+      });
+    } else {
+      typingUsers.delete(info.userId);
+    }
+
+    updateTypingIndicator();
+  } catch (e) {}
+
+  return;
+}
       if (data.length === 0 || !roomTopic || !topic.startsWith(roomTopic + "/")) {
         return;
       }
@@ -499,7 +530,30 @@ body .sender {
         beep();
       }
     });
+function updateTypingIndicator() {
+  const now = Date.now();
 
+  typingUsers.forEach(function (user, id) {
+    if (now - user.time > 4000) {
+      typingUsers.delete(id);
+    }
+  });
+
+  const names = Array.from(typingUsers.values())
+    .map(function (user) { return user.name; });
+
+  if (names.length === 0) {
+    typingIndicator.textContent = "";
+  } else if (names.length === 1) {
+    typingIndicator.textContent = names[0] + " is typing...";
+  } else {
+    typingIndicator.textContent =
+      names.slice(0, -1).join(", ") + " and " +
+      names[names.length - 1] + " are typing...";
+  }
+}
+
+setInterval(updateTypingIndicator, 1000);
     // ---------- DISPLAY ----------
     function render() {
       messages.innerHTML = "";
@@ -604,7 +658,22 @@ themeSelect.addEventListener("change", function () {
 });
 
 applyTheme();
-    
+    messageBox.addEventListener("input", function () {
+  if (!currentRoom || !myName || !client.connected) return;
+
+  const now = Date.now();
+  if (now - lastTypingSent < 1000) return;
+  lastTypingSent = now;
+
+  client.publish(
+    roomTopic + "/typing",
+    JSON.stringify({
+      userId: myId,
+      name: myName,
+      typing: messageBox.value.length > 0
+    })
+  );
+});
     joinButton.addEventListener("click", join);
     sendButton.addEventListener("click", sendMessage);
     nameBox.addEventListener("keydown", function (event) {
